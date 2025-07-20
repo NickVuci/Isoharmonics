@@ -10,10 +10,10 @@ class IsoHEWindow(QMainWindow):
         super().__init__()
         self.main_app = main_app
         self.setWindowTitle("Triadic Harmonic Entropy")
-        self.setGeometry(150, 150, 600, 550)
+        self.setGeometry(150, 150, 900, 550)
         self.setStyleSheet("background-color: #23262F;")
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        self.sidebar_width = 200
+        self.sidebar_width = 250
 
         # Load custom font
         self.custom_font = QFont("Arial Nova", 12)
@@ -24,6 +24,7 @@ class IsoHEWindow(QMainWindow):
         self.sidebar = QWidget()
         self.sidebar.setStyleSheet("background-color: #23262F;")
         self.sidebar.setMinimumWidth(0)
+        self.sidebar.setMaximumWidth(self.sidebar_width)
         self.sidebar_layout = QVBoxLayout(self.sidebar)
         self.sidebar_layout.setContentsMargins(9, 9, 9, 9)
         self.sidebar_layout.setSpacing(4)
