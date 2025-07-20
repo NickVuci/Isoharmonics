@@ -26,7 +26,6 @@ class IsoHEWidget(QWidget):
         self.stationary_timer = QTimer(self)
         self.stationary_timer.setInterval(self.stationary_update_interval)
         self.stationary_timer.timeout.connect(self.stationary_update_sound)
-        self.update_dimensions()
 
         self.pivot_voice = "lower"  # Default pivot
         self.pivot_pitch = 0.0
@@ -42,6 +41,14 @@ class IsoHEWidget(QWidget):
         self.last_drag_point = None
         self.sound = None
         self.triangle_image = None
+        
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.update_dimensions()
+
+    def resizeEvent(self, event):
+        self.update_dimensions()
+        super().resizeEvent(event)
 
     def set_pivot_voice(self, voice):
         if self.pivot_voice != voice:
@@ -90,13 +97,20 @@ class IsoHEWidget(QWidget):
         self.update()
 
     def update_dimensions(self):
-        padding = 30
-        side_length = min(self.width(), self.height()) - 2 * padding
+        self.padding = 30  # Global padding for all sides
+        padding = self.padding
+        side_length = min(self.width() - 2 * padding, self.height() - 2 * padding)
         height = (np.sqrt(3) / 2) * side_length
-        
-        self.v1 = QPointF(self.width() / 2, padding) # Top vertex
-        self.v2 = QPointF(self.width() / 2 - side_length / 2, padding + height) # Bottom-left
-        self.v3 = QPointF(self.width() / 2 + side_length / 2, padding + height) # Bottom-right
+
+        # Center triangle vertically and horizontally with padding
+        top_y = padding + (self.height() - 2 * padding - height) / 2
+        left_x = padding
+        right_x = self.width() - padding
+        center_x = self.width() / 2
+
+        self.v1 = QPointF(center_x, top_y)  # Top vertex
+        self.v2 = QPointF(center_x - side_length / 2, top_y + height)  # Bottom-left
+        self.v3 = QPointF(center_x + side_length / 2, top_y + height)  # Bottom-right
         self.triangle = QPolygonF([self.v1, self.v2, self.v3])
         self.update()
 
@@ -120,15 +134,46 @@ class IsoHEWidget(QWidget):
         painter.setFont(font)
         painter.setPen(Qt.white)
 
+        padding = getattr(self, 'padding', 30)
         equave_ratio = self.equave
         top_corner_ratio = [1, 1, equave_ratio]
         bottom_right_ratio = [1, equave_ratio, equave_ratio]
 
-        painter.drawText(self.v1 + QPointF(-15, -15), format_series_segment(top_corner_ratio))
-        # Vertically align both bottom labels with the bottom side of the triangle
-        bottom_y = self.v2.y()  # Both corners share the same y
-        painter.drawText(QPointF(self.v2.x() - 30, bottom_y), "1:1:1")
-        painter.drawText(QPointF(self.v3.x() + 5, bottom_y), format_series_segment(bottom_right_ratio))
+        # Top triangle label (centered above top vertex, with padding)
+        top_text = format_series_segment(top_corner_ratio)
+        top_label_width = 100
+        top_label_height = 30
+        top_label_rect = painter.boundingRect(
+            int(self.v1.x() - top_label_width // 2),
+            int(self.v1.y() - top_label_height - 8),  # 8px above vertex
+            top_label_width,
+            top_label_height,
+            Qt.AlignHCenter | Qt.AlignBottom,
+            top_text
+        )
+        # Clamp top label to padding
+        if top_label_rect.left() < padding:
+            top_label_rect.moveLeft(padding)
+        if top_label_rect.right() > self.width() - padding:
+            top_label_rect.moveRight(self.width() - padding)
+        painter.drawText(top_label_rect, Qt.AlignHCenter | Qt.AlignBottom, top_text)
+
+        # Bottom triangle labels (placed just below the triangle to avoid overlap)
+        label_height = painter.fontMetrics().height()
+        bottom_label_y = self.v2.y() + label_height + 4  # 4px gap below triangle
+
+        left_label = "1:1:1"
+        right_label = format_series_segment(bottom_right_ratio)
+        left_label_width = painter.fontMetrics().width(left_label)
+        right_label_width = painter.fontMetrics().width(right_label)
+
+        # Left label: right-justified, clamped to padding
+        left_x = max(self.v2.x() - left_label_width - 8, padding)
+        painter.drawText(QPointF(left_x, bottom_label_y), left_label)
+
+        # Right label: left-justified, clamped to padding
+        right_x = min(self.v3.x() + 8, self.width() - right_label_width - padding)
+        painter.drawText(QPointF(right_x, bottom_label_y), right_label)
 
     def mousePressEvent(self, event):
         if self.triangle.containsPoint(event.pos(), Qt.OddEvenFill):
